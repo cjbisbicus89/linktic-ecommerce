@@ -74,12 +74,8 @@ npm run start:all
 
 ### � Por qué esta Arquitectura
 
-> Al principio pensé en hacer un monolito, pero la prueba pedía microservicios. Después de implementarlo, entendí el valor: cada servicio escala y despliega independientemente.
+> la prueba pedía microservicios. Después de implementarlo,  cada servicio escala y despliega independientemente.
 
-**Escalabilidad:**
-- Products Service puede tener 3 réplicas si hay mucho tráfico
-- Orders Service escala separadamente durante picos de ventas
-- Bases de datos separadas evitan cuellos de botella
 
 **Mantenibilidad:**
 - Equipos separados trabajan en cada servicio sin conflictos
