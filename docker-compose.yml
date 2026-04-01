@@ -1,0 +1,140 @@
+# Docker Compose para orquestación local del e-commerce
+# Incluye bases de datos PostgreSQL, API Gateway y microservicios
+version: '3.8'
+
+services:
+  # Base de datos para Products Service
+  postgres-products:
+    image: postgres:15-alpine
+    container_name: linktic-postgres-products
+    environment:
+      POSTGRES_DB: products_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_products_data:/var/lib/postgresql/data
+      - ./scripts/init-products-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - linktic-network
+
+  # Base de datos para Orders Service
+  postgres-orders:
+    image: postgres:15-alpine
+    container_name: linktic-postgres-orders
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_orders_data:/var/lib/postgresql/data
+      - ./scripts/init-orders-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - linktic-network
+
+  # Products Microservice
+  products-service:
+    build:
+      context: .
+      dockerfile: apps/products-service/Dockerfile
+    container_name: linktic-products-service
+    environment:
+      NODE_ENV: development
+      PORT: 4001
+      DB_HOST: postgres-products
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: password
+      DB_NAME: products_db
+    ports:
+      - "4001:4001"
+    depends_on:
+      - postgres-products
+    networks:
+      - linktic-network
+    # volumes eliminados para evitar conflictos de configuración
+    # volumes:
+    #   - ./apps/products-service:/app/apps/products-service
+    #   - ./libs:/app/libs
+    #   - ./package.json:/app/package.json
+    #   - ./nx.json:/app/nx.json
+    #   - ./tsconfig.base.json:/app/tsconfig.base.json
+    #   - /app/apps/products-service/node_modules
+    #   - /app/node_modules
+
+  # Orders Microservice
+  orders-service:
+    build:
+      context: .
+      dockerfile: apps/orders-service/Dockerfile
+    container_name: linktic-orders-service
+    environment:
+      NODE_ENV: development
+      PORT: 4002
+      DB_HOST: postgres-orders
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: password
+      DB_NAME: orders_db
+      PRODUCTS_SERVICE_URL: http://products-service:4001
+    ports:
+      - "4002:4002"
+    depends_on:
+      - postgres-orders
+      - products-service
+    networks:
+      - linktic-network
+    volumes:
+      - ./apps/orders-service:/app
+      - /app/node_modules
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: linktic-api-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      PRODUCTS_SERVICE_URL: http://products-service:4001
+      ORDERS_SERVICE_URL: http://orders-service:4002
+    ports:
+      - "4000:4000"
+    depends_on:
+      - products-service
+      - orders-service
+    networks:
+      - linktic-network
+    volumes:
+      - ./apps/api-gateway:/app
+      - /app/node_modules
+
+  # Frontend React + Vite
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: linktic-frontend
+    environment:
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - linktic-network
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_products_data:
+  postgres_orders_data:
+
+networks:
+  linktic-network:
+    driver: bridge

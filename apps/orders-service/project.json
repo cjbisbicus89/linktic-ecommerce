@@ -1,0 +1,78 @@
+{
+  "name": "orders-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/orders-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/nest:build",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/orders-service",
+        "main": "apps/orders-service/src/main.ts",
+        "tsConfig": "apps/orders-service/tsconfig.app.json",
+        "assets": ["apps/orders-service/src/assets"]
+      },
+      "configurations": {
+        "production": {
+          "optimization": true,
+          "extractLicenses": true,
+          "inspect": false,
+          "fileReplacements": [
+            {
+              "replace": "apps/orders-service/src/environments/environment.ts",
+              "with": "apps/orders-service/src/environments/environment.prod.ts"
+            }
+          ]
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/nest:serve",
+      "options": {
+        "buildTarget": "orders-service:build"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "orders-service:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/orders-service/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/orders-service/jest.config.ts",
+        "passWithNoTests": true
+      },
+      "configurations": {
+        "ci": {
+          "ci": true,
+          "coverageReporters": ["text"]
+        }
+      }
+    },
+    "migrate": {
+      "executor": "@nx/workspace:run-commands",
+      "options": {
+        "command": "npx typeorm migration:run",
+        "cwd": "apps/orders-service"
+      }
+    },
+    "migrate-generate": {
+      "executor": "@nx/workspace:run-commands",
+      "options": {
+        "command": "npx typeorm migration:generate",
+        "cwd": "apps/orders-service"
+      }
+    }
+  },
+  "tags": []
+}

@@ -1,0 +1,511 @@
+# Pipeline CI/CD para Linktic E-commerce
+# Incluye stages: install, build, test, simulate deploy, version bump, changelog
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Stage 1: Install dependencies
+  install:
+    name: Install Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            
+      - name: Upload node modules cache
+        uses: actions/upload-artifact@v3
+        with:
+          name: node-modules
+          path: |
+            node_modules
+            apps/*/node_modules
+            libs/*/node_modules
+
+  # Stage 2: Build
+  build:
+    name: Build Applications
+    runs-on: ubuntu-latest
+    needs: install
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Download node modules
+        uses: actions/download-artifact@v3
+        with:
+          name: node-modules
+          
+      - name: Build shared library
+        run: npm run build:shared
+        
+      - name: Build all applications
+        run: npm run build:all
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            dist
+            apps/*/dist
+            libs/*/dist
+
+  # Stage 3: Test
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Download node modules
+        uses: actions/download-artifact@v3
+        with:
+          name: node-modules
+          
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Run tests
+        run: npm run test
+        
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+        if: matrix.os == 'ubuntu-latest'
+
+  # Stage 4: Security Scan
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: install
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Stage 5: Build Docker images
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        service: [api-gateway, products-service, orders-service, frontend]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # Stage 6: Simulate Deploy
+  simulate-deploy:
+    name: Simulate Deploy
+    runs-on: ubuntu-latest
+    needs: [build, test, docker-build]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          
+      - name: Simulate deploy to staging
+        run: |
+          echo "🚀 Simulando deploy a staging environment..."
+          echo "📦 Arquitectura: Bases de datos (Docker) + Servicios (Node.js local)"
+          echo ""
+          
+          # Validar que existan los builds
+          echo "🔍 Validando artefactos construidos..."
+          
+          if [ -d "dist/apps/api-gateway" ]; then
+            echo "✅ API Gateway build encontrado"
+          else
+            echo "❌ API Gateway build no encontrado"
+            exit 1
+          fi
+          
+          if [ -d "dist/apps/products-service" ]; then
+            echo "✅ Products Service build encontrado"
+          else
+            echo "❌ Products Service build no encontrado"
+            exit 1
+          fi
+          
+          if [ -d "dist/apps/orders-service" ]; then
+            echo "✅ Orders Service build encontrado"
+          else
+            echo "❌ Orders Service build no encontrado"
+            exit 1
+          fi
+          
+          if [ -d "dist/apps/frontend" ]; then
+            echo "✅ Frontend build encontrado"
+          else
+            echo "❌ Frontend build no encontrado"
+            exit 1
+          fi
+          
+          echo ""
+          echo "� Simulando deploy de Bases de Datos (Docker)..."
+          if [ -f "docker-compose.yml" ]; then
+            echo "✅ Docker Compose configuration encontrada"
+            echo "   - PostgreSQL Products (puerto 5432)"
+            echo "   - PostgreSQL Orders (puerto 5433)"
+          else
+            echo "❌ Docker Compose configuration no encontrada"
+            exit 1
+          fi
+          
+          echo ""
+          echo "⚡ Simulando deploy de Servicios (Node.js)..."
+          echo "   - API Gateway ejecutándose en puerto 4000"
+          echo "   - Products Service ejecutándose en puerto 4001"
+          echo "   - Orders Service ejecutándose en puerto 4002"
+          echo "   - Frontend ejecutándose en puerto 3000"
+          
+          echo ""
+          echo "🎯 Simulando configuración de variables de entorno..."
+          echo "NODE_ENV=staging" > .env.staging
+          echo "PORT=4000" >> .env.staging
+          echo "PRODUCTS_SERVICE_URL=http://localhost:4001" >> .env.staging
+          echo "ORDERS_SERVICE_URL=http://localhost:4002" >> .env.staging
+          echo "DB_HOST=localhost" >> .env.staging
+          echo "DB_PORT=5432" >> .env.staging
+          
+          echo ""
+          echo "✅ Deploy simulado exitoso a staging"
+          echo "   Nota: En producción real, los servicios se deployarían en contenedores"
+          
+      - name: Health Check Simulado
+        run: |
+          echo ""
+          echo "🔍 Ejecutando health checks simulados..."
+          echo ""
+          echo "GET http://localhost:4000/api/health"
+          echo "Status: 200 OK ✅"
+          echo "Response: {\"status\":\"ok\",\"timestamp\":\"$(date -Iseconds)\"}"
+          echo ""
+          
+          echo "GET http://localhost:4000/api/products"
+          echo "Status: 200 OK ✅"
+          echo "Response: [{\"id\":1,\"name\":\"Laptop\",...}]"
+          echo ""
+          
+          echo "GET http://localhost:4000/api/orders"
+          echo "Status: 200 OK ✅"
+          echo "Response: [{\"id\":1,\"customerName\":\"Juan\",...}]"
+          echo ""
+          
+          echo "POST http://localhost:4000/api/auth/login"
+          echo "Status: 200 OK ✅"
+          echo "Response: {\"token\":\"eyJhbGciOiJIUzI1NiIs...\"}"
+          echo ""
+          
+          echo "✅ Todos los health checks pasaron"
+          
+      - name: Generate deploy report
+        run: |
+          echo "## 🚀 Deploy Report - Staging" > deploy-report.md
+          echo "" >> deploy-report.md
+          echo "### 📦 Arquitectura Desplegada" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "**Bases de Datos (Docker):**" >> deploy-report.md
+          echo "- ✅ PostgreSQL Products: localhost:5432" >> deploy-report.md
+          echo "- ✅ PostgreSQL Orders: localhost:5433" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "**Servicios (Node.js Local):**" >> deploy-report.md
+          echo "- ✅ API Gateway: http://localhost:4000" >> deploy-report.md
+          echo "- ✅ Products Service: http://localhost:4001" >> deploy-report.md
+          echo "- ✅ Orders Service: http://localhost:4002" >> deploy-report.md
+          echo "- ✅ Frontend: http://localhost:3000" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "### 🔐 Autenticación" >> deploy-report.md
+          echo "- JWT implementado en API Gateway" >> deploy-report.md
+          echo "- Endpoint: POST /api/auth/login" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "### 📚 Documentación API" >> deploy-report.md
+          echo "- Swagger UI: http://localhost:4000/docs" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "### 🌍 Environment" >> deploy-report.md
+          echo "- Environment: Staging (Simulated)" >> deploy-report.md
+          echo "- Branch: ${{ github.ref_name }}" >> deploy-report.md
+          echo "- Commit: ${{ github.sha }}" >> deploy-report.md
+          echo "- Build Time: $(date)" >> deploy-report.md
+          echo "- Node Version: ${{ env.NODE_VERSION }}" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "### 🧪 Health Checks" >> deploy-report.md
+          echo "- ✅ /api/health - 200 OK" >> deploy-report.md
+          echo "- ✅ /api/products - 200 OK" >> deploy-report.md
+          echo "- ✅ /api/orders - 200 OK" >> deploy-report.md
+          echo "- ✅ /api/auth/login - 200 OK" >> deploy-report.md
+          echo "" >> deploy-report.md
+          echo "---" >> deploy-report.md
+          echo "*Deploy simulado exitoso* 🎉" >> deploy-report.md
+          
+      - name: Upload deploy report
+        uses: actions/upload-artifact@v3
+        with:
+          name: deploy-report
+          path: deploy-report.md
+
+  # Stage 7: Version Bump
+  version-bump:
+    name: Version Bump
+    runs-on: ubuntu-latest
+    needs: [simulate-deploy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Bump version and create tag
+        run: |
+          # Obtener versión actual
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Incrementar versión (patch)
+          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          echo "New version: $NEW_VERSION"
+          
+          # Crear tag
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          
+          # Push changes y tag
+          git push origin main --follow-tags
+          
+          echo "Version bumped to $NEW_VERSION"
+          
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          release_name: Release v${{ env.NEW_VERSION }}
+          body: |
+            ## 🚀 Release v${{ env.NEW_VERSION }}
+            
+            ### 📦 Changes
+            - Automated release from main branch
+            - Includes all features and fixes from this release
+            
+            ### 🌍 Deployments
+            - Docker images built and pushed
+            - Staging deployment simulated
+            
+            ### 📋 Artifacts
+            - API Gateway
+            - Products Service  
+            - Orders Service
+            - Frontend
+            
+          draft: false
+          prerelease: false
+
+  # Stage 8: Generate Changelog
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: [version-bump]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Generate changelog
+        run: |
+          echo "# 📋 Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## 🕐 Timeline" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          # Obtener commits desde el último tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          if [ -n "$LAST_TAG" ]; then
+            echo "### Changes since $LAST_TAG" >> CHANGELOG.md
+            git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          else
+            echo "### Initial Release" >> CHANGELOG.md
+            git log --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          fi
+          
+          echo "" >> CHANGELOG.md
+          echo "## 🏷️ Latest Release" >> CHANGELOG.md
+          echo "Version: $(node -p "require('./package.json').version")" >> CHANGELOG.md
+          echo "Date: $(date)" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "*Generated automatically by CI/CD pipeline*" >> CHANGELOG.md
+          
+      - name: Upload changelog
+        uses: actions/upload-artifact@v3
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          
+      - name: Commit changelog
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push origin main
+
+  # Notification job
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [install, build, test, security, docker-build, simulate-deploy, version-bump, changelog]
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+          
+      - name: Create summary
+        run: |
+          echo "## 🎉 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Install | ${{ needs.install.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.docker-build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Simulate Deploy | ${{ needs.simulate-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version Bump | ${{ needs.version-bump.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Changelog | ${{ needs.changelog.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node Version**: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY

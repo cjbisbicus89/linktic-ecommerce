@@ -1,0 +1,231 @@
+{
+  "version": "6.0",
+  "nxVersion": "19.8.14",
+  "deps": {
+    "@nestjs/common": "^10.3.2",
+    "@nestjs/core": "^10.3.2",
+    "@nestjs/platform-express": "^10.3.2",
+    "@nestjs/swagger": "^7.2.0",
+    "@nestjs/config": "^3.1.1",
+    "@nestjs/typeorm": "^10.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "pg": "^8.11.3",
+    "typeorm": "^0.3.20",
+    "reflect-metadata": "^0.2.1",
+    "rxjs": "^7.8.1",
+    "@nestjs/cli": "^10.3.2",
+    "@nestjs/schematics": "^10.0.3",
+    "@nestjs/testing": "^10.3.2",
+    "@nx/js": "^19.1.0",
+    "@nx/nest": "^19.1.0",
+    "@nx/node": "^19.1.0",
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  },
+  "pathMappings": {},
+  "nxJsonPlugins": [],
+  "fileMap": {
+    "projectFileMap": {
+      "products-service": [
+        {
+          "file": ".env",
+          "hash": "17496731081151138315"
+        },
+        {
+          "file": ".env.example",
+          "hash": "17496731081151138315"
+        },
+        {
+          "file": "Dockerfile",
+          "hash": "6594986625566437255"
+        },
+        {
+          "file": "dist/app.module.js",
+          "hash": "78433640085153840"
+        },
+        {
+          "file": "dist/app.module.js.map",
+          "hash": "13076028561723132740"
+        },
+        {
+          "file": "dist/filters/http-exception.filter.js",
+          "hash": "6939733145355497788"
+        },
+        {
+          "file": "dist/filters/http-exception.filter.js.map",
+          "hash": "3425586165777837286"
+        },
+        {
+          "file": "dist/filters/index.js",
+          "hash": "10070907839749394925"
+        },
+        {
+          "file": "dist/filters/index.js.map",
+          "hash": "14343764142354232151"
+        },
+        {
+          "file": "dist/main.js",
+          "hash": "17379208663984624799"
+        },
+        {
+          "file": "dist/main.js.map",
+          "hash": "6606076747753719111"
+        },
+        {
+          "file": "dist/products/dto/create-product.dto.js",
+          "hash": "11118940853458606457"
+        },
+        {
+          "file": "dist/products/dto/create-product.dto.js.map",
+          "hash": "2712254980527309074"
+        },
+        {
+          "file": "dist/products/dto/update-product.dto.js",
+          "hash": "9898792314644849677"
+        },
+        {
+          "file": "dist/products/dto/update-product.dto.js.map",
+          "hash": "7976995769385081349"
+        },
+        {
+          "file": "dist/products/products.controller.js",
+          "hash": "6368371941292589470"
+        },
+        {
+          "file": "dist/products/products.controller.js.map",
+          "hash": "3942153855038136858"
+        },
+        {
+          "file": "dist/products/products.module.js",
+          "hash": "8733723942741434096"
+        },
+        {
+          "file": "dist/products/products.module.js.map",
+          "hash": "3516610278614394888"
+        },
+        {
+          "file": "dist/products/products.service.js",
+          "hash": "4544000684770621115"
+        },
+        {
+          "file": "dist/products/products.service.js.map",
+          "hash": "11500004835925468350"
+        },
+        {
+          "file": "dist/typeorm/entities/category.entity.js",
+          "hash": "3783404466107624075"
+        },
+        {
+          "file": "dist/typeorm/entities/category.entity.js.map",
+          "hash": "10762690326611067152"
+        },
+        {
+          "file": "dist/typeorm/entities/index.js",
+          "hash": "10267486119619642742"
+        },
+        {
+          "file": "dist/typeorm/entities/index.js.map",
+          "hash": "9286291845527348960"
+        },
+        {
+          "file": "dist/typeorm/entities/product.entity.js",
+          "hash": "14597053774310946896"
+        },
+        {
+          "file": "dist/typeorm/entities/product.entity.js.map",
+          "hash": "9859789503459990044"
+        },
+        {
+          "file": "dist/typeorm/typeorm.module.js",
+          "hash": "14565571126878704522"
+        },
+        {
+          "file": "dist/typeorm/typeorm.module.js.map",
+          "hash": "17537542113356448080"
+        },
+        {
+          "file": "package.json",
+          "hash": "4059038312282741263"
+        },
+        {
+          "file": "project.json",
+          "hash": "10171607518208235857"
+        },
+        {
+          "file": "src/app.module.ts",
+          "hash": "9253119302482781563"
+        },
+        {
+          "file": "src/filters/http-exception.filter.ts",
+          "hash": "10794210331402650865"
+        },
+        {
+          "file": "src/filters/index.ts",
+          "hash": "14775543413148628558"
+        },
+        {
+          "file": "src/main.ts",
+          "hash": "9964597429213343356"
+        },
+        {
+          "file": "src/minimal-main.ts",
+          "hash": "16431854241749269860"
+        },
+        {
+          "file": "src/products/dto/create-product.dto.ts",
+          "hash": "3020090644842307291"
+        },
+        {
+          "file": "src/products/dto/update-product.dto.ts",
+          "hash": "8037349355759209717"
+        },
+        {
+          "file": "src/products/products.controller.ts",
+          "hash": "14837190301129451421"
+        },
+        {
+          "file": "src/products/products.module.ts",
+          "hash": "12606556599306442572"
+        },
+        {
+          "file": "src/products/products.service.ts",
+          "hash": "5430321997831910173"
+        },
+        {
+          "file": "src/simple-server.ts",
+          "hash": "12691074663607571209"
+        },
+        {
+          "file": "src/typeorm/entities/category.entity.ts",
+          "hash": "10627837033718758754"
+        },
+        {
+          "file": "src/typeorm/entities/index.ts",
+          "hash": "17785056587885636606"
+        },
+        {
+          "file": "src/typeorm/entities/product.entity.ts",
+          "hash": "14267406771754113481"
+        },
+        {
+          "file": "src/typeorm/typeorm.module.ts",
+          "hash": "15744115900063591238"
+        },
+        {
+          "file": "tsconfig.app.json",
+          "hash": "11439168279666688280"
+        },
+        {
+          "file": "tsconfig.json",
+          "hash": "8861356628381410182"
+        },
+        {
+          "file": "typeorm/seeds/seed.ts",
+          "hash": "13951246699620395945"
+        }
+      ]
+    },
+    "nonProjectFiles": []
+  }
+}
